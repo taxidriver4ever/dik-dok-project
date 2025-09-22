@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.tiktokproject.mapper.VideoMapper">
+    <insert id="insertVideo">
+        insert into video (title,description,url,author,uploadDate,published,tags,coverUrl)
+        values
+        (#{title},#{description},#{url},#{author},NOW(3),#{published},#{tags},#{coverUrl})
+    </insert>
+    <select id="selectVideo" resultType="org.example.tiktokproject.pojo.MySQLVideo">
+        select * from video
+    </select>
+    <select id="selectUser" resultType="org.example.tiktokproject.pojo.NormalUser">
+        select * from user_information
+    </select>
+    <update id="updateVideoLikeCount">
+        UPDATE video
+        SET likeCount = likeCount + 1
+        WHERE url = #{url}
+    </update>
+    <update id="updateVideoLikeCountDecr">
+        UPDATE video
+        SET likeCount = likeCount - 1
+        WHERE url = #{url}
+    </update>
+</mapper>

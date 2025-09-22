@@ -1,0 +1,59 @@
+package org.example.tiktokproject.consumer;
+
+import com.rabbitmq.client.Channel;
+import jakarta.annotation.Resource;
+import org.example.tiktokproject.AOP.MyLog;
+import org.example.tiktokproject.mapper.VideoMapper;
+import org.example.tiktokproject.pojo.NameAndUrl;
+import org.example.tiktokproject.pojo.Video;
+import org.example.tiktokproject.repository.VideoRepository;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.amqp.rabbit.annotation.RabbitHandler;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+@Component
+@RabbitListener(queues = "direct.decrLike.queue")
+public class DecrLikeConsumer {
+
+    @Resource
+    private VideoRepository videoRepository;
+
+    @Resource
+    private VideoMapper videoMapper;
+
+    @Resource
+    private RedissonClient redisson;
+
+    @MyLog
+    @Transactional(rollbackFor = Exception.class)
+    @RabbitHandler
+    public void receiveDecrMessage(NameAndUrl nameAndUrl) throws IOException, InterruptedException {
+        RLock lock = redisson.getLock("like" + nameAndUrl.getUrl());
+        boolean b = lock.tryLock(5, TimeUnit.SECONDS);
+        if(b) {
+            try {
+                String url = nameAndUrl.getUrl();
+                videoMapper.updateVideoLikeCountDecr(url);
+                // 2. 使用 Repository 查询并更新
+                List<Video> videoOptional = videoRepository.findByUrl(url);
+                if (!videoOptional.isEmpty()) {
+                    Video first = videoOptional.getFirst();
+                    videoRepository.deleteById(first.getId());
+                    first.setLikeCount(first.getLikeCount() - 1);
+                    videoRepository.save(first);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("消息拒绝失败", e);
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+}
