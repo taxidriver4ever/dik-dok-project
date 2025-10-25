@@ -36,7 +36,7 @@
         </div>
         <div>分享</div>
       </div>
-      <div
+      <!-- <div
         style="height: 90vh; background-color: white; width: 400px; overflow: visible;border-radius: 10px;display: flex;flex-direction: column;"
         v-show="isClickComment">
         <ElHeader style="height: 5vh;margin-top: 20px;display: flex;">
@@ -77,7 +77,7 @@
             <ElButton type="text" style="display: flex;font-size: large;" @click="isWantComment = true">评论</ElButton>
           </div>
         </ElFooter>
-      </div>
+      </div> -->
     </div>
 
 
@@ -128,8 +128,8 @@ const container = ref<HTMLElement | null>(null);
 const videoPlayers = ref<HTMLVideoElement[]>([]);
 const hasSwiped = ref(false); // 标记是否已经滑动过一次
 const comments = ref<Comment[]>([]);
-const commentInputContent = ref("")
-const isWantComment = ref(true)
+// const commentInputContent = ref("")
+// const isWantComment = ref(true)
 
 // 当前视频
 const currentVideo = computed(() => {
@@ -204,20 +204,20 @@ function clickComment() {
   else isClickComment.value = false;
 }
 
-function sendComment() {
-  if (commentInputContent.value !== "") {
-    comments.value.push(
-      {
-        id: 0,
-        url: videos.value[currentIndex.value].url,
-        content: commentInputContent.value,
-        author: videos.value[currentIndex.value].author,
-        likes: 0,
-        comments: 0
-      }
-    )
-  }
-}
+// function sendComment() {
+//   if (commentInputContent.value !== "") {
+//     comments.value.push(
+//       {
+//         id: 0,
+//         url: videos.value[currentIndex.value].url,
+//         content: commentInputContent.value,
+//         author: videos.value[currentIndex.value].author,
+//         likes: 0,
+//         comments: 0
+//       }
+//     )
+//   }
+// }
 
 function getLikeStatus() {
   axios({
