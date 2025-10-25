@@ -19,6 +19,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Repository
@@ -142,6 +143,11 @@ public class VideoRedisImp implements VideoRedis {
     @Override
     public Integer getUserLike(String url) {
         return (Integer) redisTemplate.opsForHash().get("video:information:" + url, "like");
+    }
+
+    @Override
+    public Set<String> getUserLikeVideo(String userName) {
+        return redisTemplate.opsForZSet().range("user:like:" + userName, 0, -1);
     }
 
 

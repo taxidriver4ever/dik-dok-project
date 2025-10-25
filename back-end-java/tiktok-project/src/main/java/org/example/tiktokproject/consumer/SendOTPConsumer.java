@@ -36,26 +36,19 @@ public class SendOTPConsumer {
 
     @MyLog
     @RabbitHandler
-    public void receiveMessage(String userEmail,
-                               Channel channel,
-                               org.springframework.amqp.core.Message amqpMessage) throws IOException {
-        StringBuilder stringBuilder = new StringBuilder();
-        long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag(); // 获取消息的唯一标签
-
-        boolean success = false;
+    public void receiveMessage(String userEmail) throws IOException {
+        StringBuffer stringBuffer = new StringBuffer();
         Random random = new Random();
         for(int i = 0;i<6;i++)
-            stringBuilder.append(random.nextInt(10));
-        MimeMessagePreparator preparation = getMimeMessagePreparator(userEmail, stringBuilder);
+            stringBuffer.append(random.nextInt(10));
+        MimeMessagePreparator preparation = getMimeMessagePreparator(userEmail, stringBuffer);
         mailSender.send(preparation);
         System.out.println("邮件发送成功至: " + userEmail);
-        success = true; // 标记处理成功
-        loginAndRegisterRedis.storeOTP(stringBuilder.toString() , userEmail);
-        channel.basicAck(deliveryTag, success);
+        loginAndRegisterRedis.storeOTP(stringBuffer.toString() , userEmail);
     }
 
-    private static MimeMessagePreparator getMimeMessagePreparator(String userEmail, StringBuilder stringBuilder) {
-        String message = stringBuilder.toString();
+    private static MimeMessagePreparator getMimeMessagePreparator(String userEmail, StringBuffer stringBuffer) {
+        String message = stringBuffer.toString();
         return new MimeMessagePreparator() {
             @Override
             public void prepare(MimeMessage mimeMessage) throws Exception {

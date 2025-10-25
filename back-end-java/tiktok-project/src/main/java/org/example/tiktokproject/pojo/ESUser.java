@@ -34,4 +34,6 @@ public class ESUser {
 
     @Field(type = FieldType.Long)
     private Long updatedTimeMilli;
+
+    private boolean status;
 }

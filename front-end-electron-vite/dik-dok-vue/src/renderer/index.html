@@ -5,13 +5,15 @@
   <meta charset="UTF-8" />
   <title>Electron</title>
   <!-- 更新CSP策略以允许blob媒体和外部连接 -->
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; 
-             script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
-             style-src 'self' 'unsafe-inline';
-             img-src 'self' https://pluer.oss-cn-guangzhou.aliyuncs.com https://*.aliyuncs.com data: blob:; 
-             connect-src 'self' http: https: ws: wss:; 
-             media-src 'self' blob: https://pluer.oss-cn-guangzhou.aliyuncs.com https://*.aliyuncs.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';
+               script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
+               style-src 'self' 'unsafe-inline';
+               img-src 'self' data: blob: https://pluer.oss-cn-guangzhou.aliyuncs.com https://*.aliyuncs.com;
+               media-src 'self' blob: http://8.148.179.230:8080 https://pluer.oss-cn-guangzhou.aliyuncs.com https://*.aliyuncs.com;
+               connect-src 'self' http://8.148.179.230:8080 http: https: ws: wss:;
+               worker-src 'self' blob:;
+               object-src 'none'">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 
 <body>

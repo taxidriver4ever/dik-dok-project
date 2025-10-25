@@ -3,17 +3,12 @@
         @touchend="handleTouchEnd" @wheel="handleWheel">
         <div class="videos-wrapper" :style="{ transform: `translateY(-${currentIndex * 100}vh)` }">
             <div v-for="(video, index) in videos" :key="video.id" class="video-item">
-                <video :width="VideoWidth" :height="VideoHeight" :src="video.url" playsinline ref="videoPlayers"
-                    @loadeddata="onVideoLoaded" @canplay="onVideoCanPlay" loop controls></video>
+                <video-player autoplay="any" :width="VideoWidth" :height="VideoHeight" :src="video.url" playsinline ref="videoPlayers"
+                    @loadeddata="onVideoLoaded"  @canplay="onVideoCanPlay" loop controls></video-player>
                 <div class="video-back">
-                    <ElButton class="back-button" @click="backSearchPlace">
-                        <ElIcon size="20">
-                            <Back />
-                        </ElIcon>
-                    </ElButton>
+                    <ElButton class="back-button" @click="backSearchPlace"><ElIcon size="20"><Back/></ElIcon></ElButton>
                 </div>
                 <div class="video-info">
-                    <div style="color: gray;font-size: 14px;">{{ video.uploadDate }}</div>
                     <div class="video-title">{{ video.title }}</div>
                     <div class="video-author">
                         <div class="author-avatar"></div>
@@ -24,30 +19,7 @@
         </div>
 
         <div class="controls">
-            <div class="control-btn">
-                <div class="control-icon-div">
-                    <img class="control-icon" v-if="isClickLike" @click="SendToLike"
-                        src="/src/images/FillHeart.png"></img>
-                    <img class="control-icon" v-else-if="!isClickLike" @click="SendToLike"
-                        src="/src/images/BlankHeart.png"></img>
-                </div>
-                <div>{{ currentVideo?.likes }}</div>
-            </div>
-            <div class="control-btn">
-                <div class="control-icon-div">
-                    <img class="control-icon" src="/src/images/comment.png"></img>
-                </div>
-                <div>{{ currentVideo?.comments }}</div>
-            </div>
-            <div class="control-btn" style="margin-bottom: 70px;">
-                <div class="control-icon-div">
-                    <img class="control-icon" src="/src/images/share.png"></img>
-                </div>
-                <div>分享</div>
-            </div>
         </div>
-
-        <div class="loading-indicator" v-if="isLoading"></div>
     </div>
 </template>
 
@@ -58,26 +30,28 @@ import { send } from 'vite';
 import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { Back } from '@element-plus/icons-vue';
+import { useLiveDataStore } from '../store/LiveData';
+import { VideoPlayer } from '@videojs-player/vue'
+import 'video.js/dist/video-js.css'
+import VideoJsPlayer from 'video.js';
+import videojs from 'video.js';
 
-interface Video {
+interface Live {
     id: number;
     url: string;
     title: string;
     author: string;
-    likes: number;
-    comments: number;
     coverUrl: string;
-    uploadDate: string;
+    createdTime: string;
+    updatedTime: string;
+    type: string;
 }
 
 // 视频尺寸
-const VideoWidth = ref(1300);
-const VideoHeight = ref(700);
-const isClickLike = ref(false)
+const VideoWidth = ref(1500);
+const VideoHeight = ref(750);
 // 视频数据
-const videos = ref<Video[]>([]);
 const route = useRoute();
-const currentIndex = ref(0);
 const isSwiping = ref(false);
 const startY = ref(0);
 const currentY = ref(0);
@@ -86,90 +60,12 @@ const container = ref<HTMLElement | null>(null);
 const videoPlayers = ref<HTMLVideoElement[]>([]);
 const hasSwiped = ref(false); // 标记是否已经滑动过一次
 const router = useRouter();
+const liveDataStore = useLiveDataStore();
+const videos = ref<Live[]>(liveDataStore.lives);
+const currentIndex = ref(liveDataStore.currentIndex);
 
-// 当前视频
-const currentVideo = computed(() => {
-    return videos.value.length > 0 ? videos.value[currentIndex.value] : null;
-});
-
-function backSearchPlace() {
+function backSearchPlace(){
     router.back();
-}
-
-function getLikeStatus() {
-    axios({
-        url: "http://localhost:8080/video/status",
-        method: "POST",
-        data: {
-            name: localStorage.getItem("name"),
-            url: videos.value[currentIndex.value].url
-        }
-    }).then(res => {
-        if (res.data.code === 200) {
-            isClickLike.value = res.data.data.status;
-            videos.value[currentIndex.value].likes = res.data.data.likeCount;
-        } else {
-            ElMessage.warning("您尚未登录")
-        }
-    }).catch(e => {
-        ElMessage.error(e)
-    })
-}
-
-watch(currentIndex, (newValue) => {
-    getLikeStatus();
-    if (currentIndex.value + 1 === videos.value.length) {
-        ElMessage.info("已经是最后一个视频了");
-    }
-})
-
-async function SendToLike() {
-    if (isClickLike.value === false) {
-        await axios({
-            url: "http://localhost:8080/video/click-like",
-            method: "POST",
-            headers: {
-                'name': localStorage.getItem("name"),
-                "uuid": localStorage.getItem("uuid")
-            },
-            data: {
-                name: localStorage.getItem("name"),
-                url: videos.value[currentIndex.value].url
-            }
-        }).then(res => {
-            if (res.data.code === 200) {
-                videos.value[currentIndex.value].likes++;
-                isClickLike.value = true;
-            } else {
-                ElMessage.warning("您尚未登录")
-            }
-        }).catch(e => {
-            ElMessage.error(e)
-        })
-    }
-    else {
-        await axios({
-            url: "http://localhost:8080/video/cancel-like",
-            method: "POST",
-            headers: {
-                'name': localStorage.getItem("name"),
-                "uuid": localStorage.getItem("uuid")
-            },
-            data: {
-                name: localStorage.getItem("name"),
-                url: videos.value[currentIndex.value].url
-            }
-        }).then(res => {
-            if (res.data.code === 200) {
-                videos.value[currentIndex.value].likes--;
-                isClickLike.value = false;
-            } else {
-                ElMessage.warning("您尚未登录")
-            }
-        }).catch(e => {
-            ElMessage.error(e)
-        })
-    }
 }
 // 处理触摸开始事件
 const handleTouchStart = (e: TouchEvent) => {
@@ -293,7 +189,6 @@ onMounted(() => {
             console.error('解析视频数据失败', e);
         }
     }
-    getLikeStatus();
 
 
     // 监听窗口大小变化

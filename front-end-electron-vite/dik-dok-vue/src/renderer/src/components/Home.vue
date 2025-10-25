@@ -40,6 +40,22 @@
                     </div>
                 </div>
                 <div style="display: flex; margin-left: auto; align-items: center; margin-right: 20px;">
+                    <el-popover width="320" title="互动消息" placement="top-end" v-if="isLogged">
+                        <template #reference>
+                            <ElButton type="text" class="contribution-button" :icon="AlarmClock">
+                                通知
+                            </ElButton>
+                        </template>
+                        <div
+                            style="display: flex;width: 300px;padding: 0;;max-height: 500px;overflow-y: auto;flex-direction: column;">
+                            <div>
+
+                            </div>
+                        </div>
+                    </el-popover>
+                    <ElButton type="text" class="contribution-button" :icon="Message" v-if="isLogged">
+                        私信
+                    </ElButton>
                     <ElButton type="text" class="contribution-button" @click="ToOpenLive" :icon="VideoCameraFilled">
                         开直播
                     </ElButton>
@@ -173,7 +189,7 @@
                             </ElIcon>AI开学季
                         </ElButton>
                     </div>
-                    <div style="display: flex; justify-content: center;">
+                    <div style="display: flex; justify-content: center;" @click="watchLive">
                         <ElButton type="primary" class="tool-button">
                             <ElIcon size="20" style="margin-right: 10px;">
                                 <VideoPlay />
@@ -205,8 +221,8 @@
 </template>
 
 <script setup>
-import { ElAside, ElButton, ElContainer, ElDialog, ElMessageBox, ElDivider, ElHeader, ElIcon, ElImage, ElInput, ElMain, ElMessage } from 'element-plus';
-import { Avatar, VideoCameraFilled, Plus, Back, DataBoard, Refresh, Histogram, Loading, Lock, Monitor, Pointer, Promotion, Search, StarFilled, User, VideoCamera, VideoPlay } from '@element-plus/icons-vue';
+import { ElAside, ElButton, ElContainer, ElDialog, ElMessageBox, ElDivider, ElHeader, ElIcon, ElImage, ElInput, ElMain, ElMessage, ElPopover } from 'element-plus';
+import { Avatar, VideoCameraFilled, Plus, Back, DataBoard, Refresh, Histogram, Loading, Lock, Monitor, Pointer, Promotion, Search, StarFilled, User, VideoCamera, VideoPlay, AlarmClock, Message } from '@element-plus/icons-vue';
 import { ref, watch, toRefs, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -230,6 +246,7 @@ const showSuggestions = ref(false) // 是否显示建议框
 const activeSuggestionIndex = ref(-1) // 当前激活的建议项索引
 const searchWrapper = ref(null) // 搜索容器引用
 const searchInput = ref(null) // 输入框引用
+
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -271,11 +288,14 @@ const debouncedSearch = debounce(async (searchValue) => {
     }
 }, 500);
 
+async function watchLive() {
+    router.push("/live")
+}
 // 搜索请求函数
 async function performSearchRequest(searchValue) {
     try {
         const response = await axios({
-            url: "http://127.0.0.1:8080/video/searchTitle",
+            url: "http://127.0.0.1:8080/video/title",
             method: "POST",
             data: {
                 name: localStorage.getItem("name") || "",
@@ -427,7 +447,7 @@ function ToOpenLive() {
     }).then(res => {
         if (res.data === 'Not logged in') {
             loginVisible.value = true;
-        } else {            
+        } else {
             router.push("/open-live")
         }
     }).catch(e => {
@@ -451,23 +471,24 @@ function isLoggedIn() {
 }
 
 async function SendOTP() {
-    countdown.value = 60
-    countdownTimer = setInterval(() => {
-        if (countdown.value > 0) {
-            countdown.value--
-        } else {
-            clearInterval(countdownTimer)
-        }
-    }, 1000)
-
     await axios({
-        url: "http://127.0.0.1:8080/user/SendOTP",
+        url: "http://127.0.0.1:8080/user/OTP",
         method: "post",
         data: {
             userEmail: userEmailByCode.value,
         }
     }).then(res => {
-        if (res.data.code === 200) ElMessage.success("验证码发送成功")
+        if (res.data.code === 200) {
+            ElMessage.success("验证码发送成功")
+            countdown.value = 60
+            countdownTimer = setInterval(() => {
+                if (countdown.value > 0) {
+                    countdown.value--
+                } else {
+                    clearInterval(countdownTimer)
+                }
+            }, 1000)
+        }
         else ElMessage.error("发送失败")
     }).catch(e => {
         ElMessage.error(e);
@@ -495,7 +516,7 @@ async function UserLogout() {
 
 async function LoginOrRegister() {
     await axios({
-        url: "http://127.0.0.1:8080/user/LoginOrRegister",
+        url: "http://127.0.0.1:8080/user/email-OTP",
         method: "post",
         data: {
             userEmail: userEmailByCode.value,
@@ -517,7 +538,7 @@ async function LoginOrRegister() {
 
 async function LoginByPassword() {
     await axios({
-        url: "http://127.0.0.1:8080/user/LoginByPassword",
+        url: "http://127.0.0.1:8080/user/email-password",
         method: "post",
         data: {
             userEmail: userEmailByPassword.value,

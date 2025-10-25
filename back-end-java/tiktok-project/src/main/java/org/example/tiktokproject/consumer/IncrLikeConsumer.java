@@ -6,6 +6,8 @@ import org.example.tiktokproject.AOP.MyLog;
 import org.example.tiktokproject.mapper.VideoMapper;
 import org.example.tiktokproject.pojo.NameAndUrl;
 import org.example.tiktokproject.pojo.Video;
+import org.example.tiktokproject.repository.LoginAndRegisterRedis;
+import org.example.tiktokproject.repository.VideoRedis;
 import org.example.tiktokproject.repository.VideoRepository;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -16,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.*;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,9 @@ public class IncrLikeConsumer {
     @Resource
     private RedissonClient redisson;
 
+    @Resource
+    private LoginAndRegisterRedis loginAndRegisterRedis;
+
     @MyLog
     @Transactional(rollbackFor = Exception.class)
     @RabbitHandler
@@ -51,11 +57,14 @@ public class IncrLikeConsumer {
                 // 2. 使用 Repository 查询并更新
                 List<Video> videoOptional = videoRepository.findByUrl(url);
                 if (!videoOptional.isEmpty()) {
+                    String name = nameAndUrl.getName();
                     Video first = videoOptional.getFirst();
+                    loginAndRegisterRedis.storeUserTag(name,first.getDescription());
                     videoRepository.deleteById(first.getId());
                     first.setLikeCount(first.getLikeCount() + 1);
                     videoRepository.save(first);
                 }
+
             } catch (Exception e) {
                 throw new RuntimeException("消息拒绝失败", e);
             } finally {

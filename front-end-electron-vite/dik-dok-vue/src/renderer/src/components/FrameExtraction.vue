@@ -5,8 +5,8 @@
         <ElInput style="width: 400px; height: 40px; font-size: 17px;" :disabled="isLoading" v-model="VideoTitle"
             placeholder="请输入视频标题(可选填)"></ElInput>
 
-        <el-upload class="upload-demo" :drag="!isLoading" :auto-upload="false" :on-change="handleFileChange" :show-file-list="false"
-            accept="video/*" :disabled="isLoading">
+        <el-upload class="upload-demo" :drag="!isLoading" :auto-upload="false" :on-change="handleFileChange"
+            :show-file-list="false" accept="video/*" v-show="!selectedFile">
             <el-icon class="el-icon--upload"><upload-filled /></el-icon>
             <div class="el-upload__text">
                 Drop video file here or <em>click to upload</em>
@@ -38,7 +38,7 @@
     </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { ElButton, ElUpload, ElIcon, ElMessage, ElMessageBox, ElInput } from 'element-plus';
 import axios from 'axios';
 import { onMounted, ref } from 'vue';
@@ -50,31 +50,35 @@ const region = ref("oss-cn-guangzhou");
 const bucket = ref("pluer");
 const accessKeyId = ref("");
 const accessKeySecret = ref("");
-const selectedFile = ref(null);
+const selectedFile = ref<File | null>(null);
 const isLoading = ref(false);
 const isExtracting = ref(false);
 const extractProgress = ref(0);
-const frames = ref([]);
-const urlsFromOSS = ref(null);
-const photosResult = ref([])
+interface FrameData {
+    url: string;
+    time: string;
+    blob: Blob;
+}
+const frames = ref<FrameData[]>([]);
+const urlsFromOSS = ref<PhotoAndVideo | null>(null);
+import type { PutObjectResult } from 'ali-oss';
+const photosResult = ref<PutObjectResult[]>([])
 const VideoTitle = ref("")
-const userName = ref(localStorage.getItem("name"))
+const userName = ref(localStorage.getItem("name") ?? "")
 
-class PhotoAndVideo {
-    constructor(photoA = null, photoB = null, photoC = null, photoD = null, photoE = null, video = null, title = null, author = null) {
-        this.photoA = photoA;
-        this.photoB = photoB;
-        this.photoC = photoC;
-        this.photoD = photoD;
-        this.photoE = photoE;
-        this.video = video;
-        this.title = title;
-        this.author = author;
-    }
+interface PhotoAndVideo {
+    photoA:string;
+    photoB:string;
+    photoC:string;
+    photoD:string;
+    photoE:string;
+    video:string;
+    title:string;
+    author:string;
 }
 
 // 格式化文件大小
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes:number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -85,7 +89,7 @@ const formatFileSize = (bytes) => {
 // 清理资源
 const cleanupResources = () => {
     // 清理blob URLs
-    frames.value.forEach(frame => {
+    frames.value.forEach((frame:any) => {
         URL.revokeObjectURL(frame.url);
     });
     selectedFile.value = null;
@@ -113,7 +117,7 @@ const removeSelectedFile = () => {
 };
 
 // 处理文件选择变化事件
-const handleFileChange = async (file, fileList) => {
+const handleFileChange = async (file:any, fileList:any) => {
     cleanupResources();
 
     if (file) {
@@ -129,12 +133,12 @@ const handleFileChange = async (file, fileList) => {
 };
 
 // 抽取视频帧
-const extractVideoFrames = async (videoFile) => {
+const extractVideoFrames = async (videoFile:any): Promise<void> => {
     isExtracting.value = true;
     extractProgress.value = 0;
     frames.value = [];
 
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
         const videoElement = document.createElement('video');
         videoElement.muted = true;
         videoElement.playsInline = true;
@@ -152,27 +156,32 @@ const extractVideoFrames = async (videoFile) => {
             const context = canvas.getContext('2d');
             let framesCaptured = 0;
 
-            const captureFrame = (time) => {
+            const captureFrame = (time:any) => {
                 return new Promise((frameResolve) => {
                     videoElement.currentTime = time;
 
                     videoElement.onseeked = () => {
                         canvas.width = videoElement.videoWidth;
                         canvas.height = videoElement.videoHeight;
-                        context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                        if (context) {
+                            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-                        canvas.toBlob((blob) => {
-                            const frameUrl = URL.createObjectURL(blob);
-                            frames.value.push({
-                                url: frameUrl,
-                                time: time.toFixed(1),
-                                blob: blob
-                            });
+                            canvas.toBlob((blob:any) => {
+                                const frameUrl = URL.createObjectURL(blob);
+                                frames.value.push({
+                                    url: frameUrl,
+                                    time: time.toFixed(1),
+                                    blob: blob
+                                });
 
-                            framesCaptured++;
-                            extractProgress.value = (framesCaptured / frameCount) * 100;
-                            frameResolve();
-                        }, 'image/jpeg', 0.8);
+                                framesCaptured++;
+                                extractProgress.value = (framesCaptured / frameCount) * 100;
+                                frameResolve(undefined);
+                            }, 'image/jpeg', 0.8);
+                        } else {
+                            ElMessage.error('无法获取 Canvas 上下文，帧抽取失败');
+                            frameResolve(undefined);
+                        }
                     };
                 });
             };
@@ -248,6 +257,9 @@ async function uploadFileToOSS() {
         const timestamp = Date.now();
 
         // 上传视频文件
+        if (!selectedFile.value) {
+            throw new Error('No video file selected');
+        }
         const videoFileName = `uploads/${timestamp}_${selectedFile.value.name}`;
         const videoResult = await client.put(videoFileName, selectedFile.value);
         // 上传帧图片
@@ -266,10 +278,16 @@ async function uploadFileToOSS() {
                 }
             }
         }
-        urlsFromOSS.value = new PhotoAndVideo(photosResult.value[0].url, photosResult.value[1].url,
-            photosResult.value[2].url, photosResult.value[3].url, photosResult.value[4].url,
-            videoResult.url, VideoTitle.value, userName.value
-        )
+        urlsFromOSS.value = {
+            photoA: photosResult.value[0].url,
+            photoB: photosResult.value[1].url,
+            photoC: photosResult.value[2].url,
+            photoD: photosResult.value[3].url,
+            photoE: photosResult.value[4].url,
+            video: videoResult.url,
+            title: VideoTitle.value,
+            author: userName.value ?? ""
+        }
         sendUrlToJava();
         ElMessage.success(`上传成功! 视频已上传`);
         cleanupResources();
@@ -282,7 +300,7 @@ async function uploadFileToOSS() {
 }
 function sendUrlToJava() {
     axios({
-        url: "http://localhost:8080/video/SendUrl",
+        url: "http://localhost:8080/video/urls",
         method: "POST",
         headers: {
             'Content-Type': 'application/json',

@@ -1,10 +1,10 @@
 package org.example.tiktokproject.service.imp;
 
 import jakarta.annotation.Resource;
-import org.example.tiktokproject.pojo.KeywordAndName;
-import org.example.tiktokproject.pojo.NameAndUrl;
-import org.example.tiktokproject.pojo.StatusAndLikeTimes;
-import org.example.tiktokproject.pojo.Video;
+import lombok.extern.slf4j.Slf4j;
+import org.example.tiktokproject.AOP.MyLog;
+import org.example.tiktokproject.pojo.*;
+import org.example.tiktokproject.repository.LoginAndRegisterRedis;
 import org.example.tiktokproject.repository.VideoRedis;
 import org.example.tiktokproject.repository.VideoRepository;
 import org.example.tiktokproject.service.VideoService;
@@ -13,9 +13,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class VideoServiceImp implements VideoService {
 
@@ -28,8 +30,13 @@ public class VideoServiceImp implements VideoService {
     @Resource
     private RabbitTemplate rabbitTemplate;
 
+    @Resource
+    private LoginAndRegisterRedis loginAndRegisterRedis;
+
+    @MyLog
     @Override
-    public List<Video> getVideos() {
+    public List<Video> getVideos(NormalUser normalUser) {
+//        到时候换成用户的类型推荐视频类型
         String[] split = {"电影", "影片", "视频", "片段", "动画",
                 "卡通", "动漫", "纪录片", "短片", "长片", "音乐视频",
                 "音乐 MV", "视频博客", "教程视频", "教学视频", "教育视频", "动作", "冒险", "喜剧", "剧情", "恐怖", "惊悚",
@@ -68,32 +75,35 @@ public class VideoServiceImp implements VideoService {
                 "家庭向", "情侣向", "游戏玩家向", "体育迷向", "音乐爱好者向", "电影爱好者向", "旅行者向", "美食家向", "科技爱好者向", "时尚爱好者向",
                 "热门话题", "病毒视频", "季节性内容", "节日特辑",
                 "时事", "现场报道", "实时更新"};
+        String string = getString(split);
+        if(normalUser != null) {
+            String userTag = loginAndRegisterRedis.getUserTag(normalUser.getUserName());
+            return videoRepository.findByDescriptionContaining(string + userTag);
+        }
+        else {
+            return videoRepository.findByDescriptionContaining(string);
+        }
+    }
+
+    private static String getString(String[] split) {
         Random random = new Random();
-        //        CopyOnWriteArrayList<Video> copyOnWriteArrayList = new CopyOnWriteArrayList<>();
-//        Random random2 = new Random();
-//        int j = random2.nextInt(byDescriptionContaining.size());
-//        int j1 = random2.nextInt(byDescriptionContaining.size());
-//        int j2 = random2.nextInt(byDescriptionContaining.size());
-//        copyOnWriteArrayList.add(byDescriptionContaining.get(j));
-//        copyOnWriteArrayList.add(byDescriptionContaining.get(j1));
-//        copyOnWriteArrayList.add(byDescriptionContaining.get(j2));
-        return videoRepository.findByDescriptionContaining(
+        return split[random.nextInt(split.length)] + " " +
                 split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " " +
-                        split[random.nextInt(split.length)] + " "
-        );
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " " +
+                split[random.nextInt(split.length)] + " ";
     }
 
     @Override
     public List<Video> searchTitle(KeywordAndName keyword) {
-        return videoRepository.findByTitle(keyword.getKeyword());
+        List<Video> byTitle = videoRepository.findByTitle(keyword.getKeyword());
+        log.info(byTitle.toString());
+        return byTitle;
     }
 
     @Override
@@ -101,6 +111,7 @@ public class VideoServiceImp implements VideoService {
         List<Video> byTitle = videoRepository.findByTitle(keyword.getKeyword());
         List<Video> byDescriptionContaining = videoRepository.findByDescriptionContaining(keyword.getKeyword());
         byTitle.addAll(byDescriptionContaining);
+        log.info(byTitle.toString());
         return byTitle;
     }
 
@@ -127,5 +138,14 @@ public class VideoServiceImp implements VideoService {
     @Override
     public StatusAndLikeTimes getLikeStatus(NameAndUrl nameAndUrl) {
         return new StatusAndLikeTimes(videoRedis.existUserLike(nameAndUrl),videoRedis.getUserLike(nameAndUrl.getUrl()));
+    }
+
+    @Override
+    public void getVideoUrlTag(String userName, String url) {
+        List<Video> byUrl = videoRepository.findByUrl(url);
+        for(Video video : byUrl) {
+            String description = video.getDescription();
+            loginAndRegisterRedis.storeUserTag(userName,description);
+        }
     }
 }

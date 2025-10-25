@@ -4,7 +4,7 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.example.tiktokproject.mapper.LiveMapper">
     <insert id="insertLive">
-        insert into live (url,author,title,createdTime,updatedTime) values (#{url},#{author},#{title},NOW(3),NOW(3));
+        insert into live (url,author,title,createdTime,updatedTime,coverUrl,type) values (#{url},#{author},#{title},NOW(3),NOW(3),#{coverUrl},#{type});
     </insert>
     <delete id="deleteLive">
         delete from live

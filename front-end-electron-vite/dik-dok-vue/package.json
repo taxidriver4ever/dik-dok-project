@@ -20,10 +20,13 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@videojs-player/vue": "^1.0.0",
     "ali-oss": "^6.23.0",
     "axios": "^1.12.0",
     "electron-updater": "^6.3.9",
     "element-plus": "^2.11.2",
+    "pinia": "^3.0.3",
+    "video.js": "^8.23.4",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {

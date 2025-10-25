@@ -1,19 +1,22 @@
 package org.example.tiktokproject.service.imp;
 
 import jakarta.annotation.Resource;
+import org.example.tiktokproject.AOP.MyLog;
 import org.example.tiktokproject.mapper.LoginAndRegisterMapper;
-import org.example.tiktokproject.pojo.ESUser;
-import org.example.tiktokproject.pojo.EmailWithCode;
-import org.example.tiktokproject.pojo.NameWithUUID;
+import org.example.tiktokproject.pojo.*;
 import org.example.tiktokproject.repository.LoginAndRegisterRedis;
 import org.example.tiktokproject.repository.UserESRepository;
 import org.example.tiktokproject.service.LoginAndRegisterService;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class LoginAndRegisterServiceImp implements LoginAndRegisterService {
@@ -76,5 +79,35 @@ public class LoginAndRegisterServiceImp implements LoginAndRegisterService {
         }
     }
 
+    @Override
+    public List<ESUser> getUserByKeyword(KeywordAndName keyword) {
+        List<ESUser> users = userESRepository.findByUserName(keyword.getKeyword());
+        if(users.isEmpty()) return null;
+        String name = keyword.getName();
+        if(name==null) return null;
+        for (ESUser user : users)
+            user.setStatus(loginAndRegisterRedis.verifySubscribeUserName(name, user.getUserName()));
+        return users;
+    }
+
+    @MyLog
+    @Override
+    public boolean subscribeUser(String userName, String subscribeUserName) {
+        if(loginAndRegisterRedis.verifySubscribeUserName(userName, subscribeUserName)) return false;
+        loginAndRegisterRedis.storeSubscribeUserName(userName, subscribeUserName);
+        return true;
+    }
+
+    @MyLog
+    @Override
+    public boolean verifySubscribeUser(String userName, String subscribeUserName) {
+        return loginAndRegisterRedis.verifySubscribeUserName(userName, subscribeUserName);
+    }
+
+    @MyLog
+    @Override
+    public boolean unsubscribeUser(String userName, String subscribeUserName) {
+        return loginAndRegisterRedis.deleteSubscribeUserName(userName, subscribeUserName);
+    }
 
 }

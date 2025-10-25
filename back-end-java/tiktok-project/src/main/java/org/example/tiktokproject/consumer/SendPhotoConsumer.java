@@ -59,7 +59,6 @@ public class SendPhotoConsumer {
     public void receiveMessage(PhotoAndVideo photoAndVideo,
                                Channel channel,
                                org.springframework.amqp.core.Message amqpMessage) {
-        long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
         String videoUrl = photoAndVideo.getVideo();
         String messageId = amqpMessage.getMessageProperties().getMessageId();
 
@@ -71,14 +70,14 @@ public class SendPhotoConsumer {
             boolean lockAcquired = lock.tryLock(LOCK_WAIT_TIME, LOCK_LEASE_TIME, TimeUnit.SECONDS);
 
             if (!lockAcquired) {
-                logger.warn("Failed to acquire lock for message: {}, will retry", messageId);
-                channel.basicNack(deliveryTag, false, true); // 重试
+                logger.warn("Failed to acquire lock for message: {}", messageId);
+                // 自动确认模式下，不需要手动nack，消息会自动重试或进入死信队列
                 return;
             }
 
             try {
                 // 处理视频业务逻辑
-                processVideo(photoAndVideo, channel, amqpMessage);
+                processVideo(photoAndVideo);
 
             } finally {
                 if (lock.isHeldByCurrentThread()) {
@@ -86,22 +85,14 @@ public class SendPhotoConsumer {
                 }
             }
 
-        }catch (Exception e) {
+        } catch (Exception e) {
             logger.error("Error processing message: {}", messageId, e);
-            try {
-                channel.basicNack(deliveryTag, false, false);
-            } catch (Exception nackEx) {
-                logger.error("Failed to NACK message: {}", nackEx.getMessage());
-            }
+            // 异常会被抛出，Spring会自动处理确认（根据配置可能是重试或进入死信队列）
         }
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void processVideo(PhotoAndVideo photoAndVideo,
-                              Channel channel,
-                              org.springframework.amqp.core.Message amqpMessage) throws Exception {
-        long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
-
+    public void processVideo(PhotoAndVideo photoAndVideo) throws Exception {
         // 1. 创建识别请求
         List<RecognitionRequest> recognitionRequests = Arrays.asList(
                 createRecognitionRequest(photoAndVideo.getPhotoA()),
@@ -114,13 +105,10 @@ public class SendPhotoConsumer {
         // 2. 发送识别请求到Python服务
         DetectionResponse detectionResponse = sendRecognitionRequest(recognitionRequests);
 
-        // 3. 处理响应并确认消息
+        // 3. 处理响应
         if (detectionResponse != null) {
             // 4. 保存视频数据到数据库（允许重复URL）
             saveVideoData(photoAndVideo, detectionResponse);
-
-            // 5. 确认消息（在处理完成后）
-            channel.basicAck(deliveryTag, false);
             logger.info("Successfully processed and saved video: {}", photoAndVideo.getVideo());
         } else {
             throw new RuntimeException("Failed to get valid detection response");

@@ -7,7 +7,7 @@ import java.util.List;
 
 @Mapper
 public interface LiveMapper {
-    void insertLive(String author,String url,String title);
+    void insertLive(String author,String url,String title,String coverUrl,String type);
     void deleteLive(String author);
     List<Integer> selectLiveByAuthor(String author);
 }

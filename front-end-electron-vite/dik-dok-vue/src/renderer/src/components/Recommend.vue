@@ -36,19 +36,47 @@
         </div>
         <div>分享</div>
       </div>
-      <div style="height: 90vh; background-color: white; width: 400px; overflow: visible;border-radius: 10px;display: flex;flex-direction: column;" v-show="isClickComment">
-        <ElHeader style="margin-top: 20px;display: flex;">
+      <div
+        style="height: 90vh; background-color: white; width: 400px; overflow: visible;border-radius: 10px;display: flex;flex-direction: column;"
+        v-show="isClickComment">
+        <ElHeader style="height: 5vh;margin-top: 20px;display: flex;">
           <el-button @click="isClickComment = false" type="text">
-            <ElIcon size="20"><Back/></ElIcon>
+            <ElIcon size="20">
+              <Back />
+            </ElIcon>
           </el-button>
-          <h1>&nbsp;&nbsp;最近评论</h1>
+          <h1>&nbsp;&nbsp;全部评论</h1>
         </ElHeader>
-        <ElMain style="padding: 0;margin: 0 0 0 20px;">
-          <div v-for="(comment,index) in comments" :key="index" style="margin-bottom: 40px;display: flex;flex-direction: column;">
-            <div>{{ comment }}</div>
+        <ElMain style="padding: 0;margin: 0 0 0 20px;display: flex;flex-direction: column;">
+          <div v-for="(comment, index) in comments" :key="index"
+            style="margin-bottom: 40px;display: flex;flex-direction: column; max-width:100vh;overflow-x: hidden;">
+            <div style="font-size: 12px;">{{ comment }}</div>
             <div style="display: flex;margin-left: auto;margin-right: 20px;font-size: 12px;">like</div>
           </div>
         </ElMain>
+        <ElFooter style="height: 20vh; display: flex; margin: 0; padding: 0;">
+          <div v-if="isWantComment"
+            style="background-color: white;width: 100vh; ;display: flex;flex-direction: column;margin-top: auto; margin-bottom: 20px; padding: 20px 20px 0 20px;">
+            <div>
+              <ElButton type="text" @click="isWantComment = false">
+                <ElIcon size="20">
+                  <Back />
+                </ElIcon>收起
+              </ElButton>
+            </div>
+            <div style="display: flex;flex-direction: column;background-color: white;">
+              <ElInput v-model="commentInputContent" resize="none" :autosize="{ minRows: 3, maxRows: 3 }"
+                placeholder="请输入你的评论" type="textarea">
+              </ElInput>
+              <ElButton @click="sendComment" style="width: 100px;display: flex;margin-left: auto;" type="danger">发送
+              </ElButton>
+            </div>
+          </div>
+          <div v-else
+            style="display: flex;margin-top: auto; margin-left: auto; margin-right: auto;margin-bottom: 20px;">
+            <ElButton type="text" style="display: flex;font-size: large;" @click="isWantComment = true">评论</ElButton>
+          </div>
+        </ElFooter>
       </div>
     </div>
 
@@ -60,12 +88,12 @@
 
 <script lang="ts" setup>
 import axios from 'axios';
-import { ElButton, ElHeader, ElIcon, ElMain, ElMessage } from 'element-plus';
+import { ElButton, ElFooter, ElHeader, ElIcon, ElInput, ElMain, ElMessage } from 'element-plus';
 import { send } from 'vite';
-import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, computed, nextTick, watch, onUnmounted } from 'vue'
 import { Back } from '@element-plus/icons-vue';
 
-class Video {
+interface Video {
   id: number;
   url: string;
   title: string;
@@ -73,36 +101,15 @@ class Video {
   likes: number;
   comments: number;
   coverUrl: string;
-
-  constructor(id: number, url: string, title: string, auther: string, likes: number, comments: number, coverUrl: string) {
-    this.id = id;
-    this.url = url;
-    this.title = title;
-    this.author = auther;
-    this.likes = likes;
-    this.comments = comments;
-    this.coverUrl = coverUrl;
-  }
 }
 
-class Comment {
+interface Comment {
   id: number;
   url: string;
   content: string;
   author: string;
   likes: number;
   comments: number;
-  avatar: string;
-
-  constructor(id: number, url: string, content: string, author: string, likes: number, comments: number,avatar: string) {
-    this.id = id;
-    this.url = url;
-    this.content = content;
-    this.author = author;
-    this.likes = likes;
-    this.comments = comments;
-    this.avatar = avatar;
-  }
 }
 
 // 视频尺寸
@@ -121,22 +128,100 @@ const container = ref<HTMLElement | null>(null);
 const videoPlayers = ref<HTMLVideoElement[]>([]);
 const hasSwiped = ref(false); // 标记是否已经滑动过一次
 const comments = ref<Comment[]>([]);
+const commentInputContent = ref("")
+const isWantComment = ref(true)
 
 // 当前视频
 const currentVideo = computed(() => {
   return videos.value.length > 0 ? videos.value[currentIndex.value] : null;
 });
 
+// 用于存储定时器ID
+let timerId: string | number | NodeJS.Timeout | null | undefined = null
+
+watch(currentIndex, (newValue) => {
+  // 清除之前的定时器
+  if (timerId) {
+    clearInterval(timerId)
+    timerId = null
+  }
+  
+  // 立即发送一次请求
+  sendVideoUrlRequest()
+  
+  // 设置新的定时器，每5秒发送请求
+  timerId = setInterval(() => {
+    sendVideoUrlRequest()
+  }, 5000)
+})
+
+// 提取请求函数
+const sendVideoUrlRequest = () => {
+
+  if (videos.value.length === 0) return
+  
+  const videoUrl = videos.value[currentIndex.value]?.url
+  if (!videoUrl) return
+  
+  if(localStorage.getItem("name") === null || localStorage.getItem("uuid") === null){
+    return
+  }
+  axios({
+    url: "http://localhost:8080/video/url-tag",
+    method: "POST",
+    headers: {
+      'name': localStorage.getItem("name"),
+      "uuid": localStorage.getItem("uuid")
+    },
+    params: {
+      userName: localStorage.getItem("name"),
+      url: videoUrl
+    }
+  }).then(res => {
+    if (res.data.code === 200) {
+      console.log("URL check passed for index:", currentIndex.value)
+    }
+    else {
+      alert(res.data);
+    }
+  }).catch(e => {
+    ElMessage.error(e.message || "Request failed")
+  })
+}
+
+// 组件卸载时清除定时器
+onUnmounted(() => {
+  if (timerId) {
+    clearInterval(timerId)
+    timerId = null
+  }
+})
+
 function clickComment() {
-  if(isClickComment.value === false) {
+  if (isClickComment.value === false) {
     isClickComment.value = true;
   }
   else isClickComment.value = false;
 }
 
+function sendComment() {
+  if (commentInputContent.value !== "") {
+    comments.value.push(
+      {
+        id: 0,
+        url: videos.value[currentIndex.value].url,
+        content: commentInputContent.value,
+        author: videos.value[currentIndex.value].author,
+        likes: 0,
+        comments: 0
+      }
+    )
+  }
+}
+
 function getLikeStatus() {
   axios({
-    url: "http://localhost:8080/video/getLikeStatus",
+    url: "http://localhost:8080/video/status",
     method: "POST",
     headers: {
       'name': localStorage.getItem("name"),
@@ -168,7 +253,7 @@ watch(currentIndex, (newValue) => {
 async function SendToLike() {
   if (isClickLike.value === false) {
     await axios({
-      url: "http://localhost:8080/video/clickLike",
+      url: "http://localhost:8080/video/click-like",
       method: "POST",
       headers: {
         'name': localStorage.getItem("name"),
@@ -191,7 +276,7 @@ async function SendToLike() {
   }
   else {
     await axios({
-      url: "http://localhost:8080/video/cancelLike",
+      url: "http://localhost:8080/video/cancel-like",
       method: "POST",
       headers: {
         'name': localStorage.getItem("name"),
@@ -321,7 +406,7 @@ const onVideoCanPlay = () => {
 
 function GetVideoFromOSS() {
   axios({
-    url: "http://127.0.0.1:8080/video/GetVideo",
+    url: "http://127.0.0.1:8080/video/random",
     method: "POST",
     data: {
 

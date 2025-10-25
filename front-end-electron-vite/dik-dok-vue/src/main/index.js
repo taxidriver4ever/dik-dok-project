@@ -6,9 +6,9 @@ import icon from '../../resources/icon.png?asset'
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1400,
+    width: 1500,
     height: 800,
-    minWidth: 1300,
+    minWidth: 1500,
     minHeight: 800,
     show: false,
     autoHideMenuBar: true,
@@ -17,7 +17,7 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       // 允许跨域
-      webSecurity: false,
+        webSecurity: false,
       nodeIntegration: false,
     contextIsolation: true
     // partition: 'persist:yourpartition', // 使用持久化分区

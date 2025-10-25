@@ -7,7 +7,28 @@
                 </ElIcon>
             </ElButton>
         </ElHeader>
-        <ElMain style="display: flex; justify-content: center; padding: 0; margin: 0;">
+        <ElHeader style="padding: 0;margin: 0;height: 5vh;">
+            <ElButton @click="showSearchVideo" :class="{
+                'video-button': true,
+                'active': currentSelected === 'video'
+            }">
+                视频
+            </ElButton>
+            <ElButton @click="showSearchUser" :class="{
+                'user-button': true,
+                'active': currentSelected === 'user'
+            }">
+                用户
+            </ElButton>
+            <ElButton @click="showSearchLive" :class="{
+                'live-button': true,
+                'active': currentSelected === 'live'
+            }">
+                直播
+            </ElButton>
+        </ElHeader>
+        <ElMain style="display: flex; justify-content: center; padding: 0; margin: 0;"
+            v-if="currentSelected === 'video'">
             <!-- 添加一个容器来管理布局 -->
             <div style="margin-left: auto; display: flex; align-items: center; justify-content: center;font-size: 40px;color: rgb(32, 34, 45);"
                 v-if="videosAreEmpty">
@@ -15,13 +36,46 @@
             </div>
             <div class="video-container custom-scroll-content">
                 <div v-for="(video, index) in videos" :key="index" class="video-item" @click="goToWatch(video, index)">
-                    <ElImage style="width: 295px; height: auto;border-radius: 20px !important;" :src="video.coverUrl">
+                    <ElImage style="width: 36vh; height: auto;border-radius: 20px !important;" :src="video.coverUrl">
                     </ElImage>
                     <div style="color: white;">{{ video.title }}</div>
                     <div style="color: white;font-size: small;">@{{ video.author }}</div>
                 </div>
             </div>
         </ElMain>
+        <ElMain style="display: flex; padding: 0; margin: 0;flex-direction: column;"
+            v-else-if="currentSelected === 'user'">
+            <!-- 添加一个容器来管理布局 -->
+            <div style="margin-left: auto; display: flex; align-items: center; justify-content: center;font-size: 40px;color: rgb(32, 34, 45);"
+                v-if="videosAreEmpty">
+                搜索内容为空
+            </div>
+            <div v-for="(user, index) in users" :key="index" style="color: white;display: flex;margin-right: auto;flex-direction: column;
+            margin-bottom: 20px;">
+                <div style="display: flex;flex-direction: column;margin-left: 20px;">
+                    <div style="display: flex;margin-right: auto;">{{ user.userName }}</div>
+                    <!-- <div style="display: flex;">{{ user.userEmail }}</div> -->
+                </div>
+                <div style="display: flex;margin-left: auto;">
+                    <ElButton type="danger" @click="subscribeUser(user.userName, index)" v-if="!user.status">关注</ElButton>
+                    <ElButton type="info" @click="cancelSubscribeUser(user.userName,index)" v-else>取消关注</ElButton>
+                </div>
+            </div>
+        </ElMain>
+        <!-- <ElMain style="display: flex; justify-content: center; padding: 0; margin: 0;" v-if="currentSelected === 'video'">
+            <div style="margin-left: auto; display: flex; align-items: center; justify-content: center;font-size: 40px;color: rgb(32, 34, 45);"
+                v-if="videosAreEmpty">
+                搜索内容为空
+            </div>
+            <div class="video-container custom-scroll-content">
+                <div v-for="(live, index) in lives" :key="index" class="video-item" @click="goToWatchLive(live, index)">
+                    <ElImage style="width: 36vh; height: auto;border-radius: 20px !important;" :src="live.coverUrl">
+                    </ElImage>
+                    <div style="color: white;">{{ live.title }}</div>
+                    <div style="color: white;font-size: small;">@{{ live.author }}</div>
+                </div>
+            </div>
+        </ElMain> -->
     </ElContainer>
 </template>
 
@@ -36,9 +90,12 @@ import { useRouter } from 'vue-router';
 const route = useRoute();
 const searchKeyword = ref("");
 const videos = ref<Video[]>([]);
+const lives = ref<Live[]>([]);
+const users = ref<User[]>([]);
 const videosAreEmpty = ref(false);
 const router = useRouter();
-class Video {
+const currentSelected = ref("video");
+interface Video {
     url: string;
     coverUrl: string;
     author: string;
@@ -48,20 +105,38 @@ class Video {
     // view: number;
     likes: number;
     comments: number;
-    constructor(url: string, coverUrl: string, author: string, avatar: string, title: string, uploadDate: string,
-        likes: number, comments: number
-    ) {
-        this.url = url;
-        this.coverUrl = coverUrl;
-        this.author = author;
-        this.avatar = avatar;
-        this.title = title;
-        this.uploadDate = formatUploadDate(uploadDate);
-        // this.view = view;
-        this.likes = likes;
-        this.comments = comments;
-    }
-
+}
+interface Live {
+    id: number;
+    url: string;
+    title: string;
+    author: string;
+    coverUrl: string;
+    createdTime: string;
+    updatedTime: string;
+    type: string;
+}
+interface User {
+    id: string;
+    userName: string;
+    userPassword: string;
+    userEmail: string;
+    avatar: string;
+    createdTimeMilli: string;
+    updatedTimeMilli: string;
+    status: boolean;
+}
+function showSearchVideo() {
+    currentSelected.value = 'video'
+    // getSearchVideo();
+}
+function showSearchUser() {
+    currentSelected.value = 'user'
+    getSearchUser();
+}
+function showSearchLive() {
+    currentSelected.value = 'live'
+    // getSearchLive();
 }
 function formatUploadDate(timestamp: string | number): string {
     const date = new Date(Number(timestamp));
@@ -79,7 +154,7 @@ function formatUploadDate(timestamp: string | number): string {
 function backToHome() { window.location.href = "/" }
 async function getSearchVideo() {
     await axios({
-        url: "http://127.0.0.1:8080/video/searchVideo",
+        url: "http://127.0.0.1:8080/video/data",
         method: "POST",
         data: {
             name: localStorage.getItem("name") || "",
@@ -88,20 +163,100 @@ async function getSearchVideo() {
     }).then(res => {
         if (res.data.code === 200) {
             for (let i = 0; i < res.data.data.length; i++) {
-                videos.value.push(new Video(
-                    res.data.data[i].url,
-                    res.data.data[i].coverUrl,
-                    res.data.data[i].author,
-                    res.data.data[i].avatar,
-                    res.data.data[i].title,
-                    res.data.data[i].uploadDateMilli,
-                    res.data.data[i].likeCount,
-                    res.data.data[i].commentCount,
-                ));
+                videos.value.push({
+                    url: res.data.data[i].url,
+                    coverUrl: res.data.data[i].coverUrl,
+                    author: res.data.data[i].author,
+                    avatar: res.data.data[i].avatar,
+                    title: res.data.data[i].title,
+                    uploadDate: res.data.data[i].uploadDateMilli,
+                    likes: res.data.data[i].likeCount,
+                    comments: res.data.data[i].commentCount,
+                });
             }
             if (videos.value.length === 0) videosAreEmpty.value = true;
         }
         else ElMessage.warning("获取视频失败")
+    }).catch(e => {
+        console.log(e);
+    })
+}
+async function getSearchUser() {
+    await axios({
+        url: "http://127.0.0.1:8080/user/data",
+        method: "POST",
+        headers: {
+            'name': localStorage.getItem("name"),
+            "uuid": localStorage.getItem("uuid")
+        },
+        data: {
+            name: localStorage.getItem("name") || "",
+            keyword: searchKeyword.value
+        }
+    }).then(res => {
+        if (res.data.code === 200) {
+            users.value = res.data.data
+            if (users.value.length === 0) {
+                videosAreEmpty.value = true;
+            }
+        }
+    }).catch(e => {
+        console.log(e);
+    })
+}
+async function subscribeUser(subscribeUserName: string, index: number) {
+    await axios({
+        url: "http://127.0.0.1:8080/user/subscription",
+        method: "POST",
+        headers: {
+            'name': localStorage.getItem("name"),
+            "uuid": localStorage.getItem("uuid")
+        },
+        params: {
+            userName: localStorage.getItem("name") || "",
+            subscribeUserName: subscribeUserName
+        }
+    }).then(res => {
+        if (res.data.code === 200) {
+            users.value[index].status = true;
+        }
+    }).catch(e => {
+        console.log(e);
+    })
+}
+async function cancelSubscribeUser(subscribeUserName: string, index: number) {
+    await axios({
+        url: "http://127.0.0.1:8080/user/cancel-subscription",
+        method: "POST",
+        headers: {
+            'name': localStorage.getItem("name"),
+            "uuid": localStorage.getItem("uuid")
+        },
+        params: {
+            userName: localStorage.getItem("name") || "",
+            subscribeUserName: subscribeUserName
+        }
+    }).then(res => {
+        if (res.data.code === 200) 
+            users.value[index].status = false;
+        else ElMessage.warning("删除失败")
+    }).catch(e => {
+        console.log(e);
+    })
+}
+async function getSearchLive() {
+    await axios({
+        url: "http://127.0.0.1:8080/live/data",
+        method: "POST",
+        data: {
+            name: localStorage.getItem("name") || "",
+            keyword: searchKeyword.value
+        }
+    }).then(res => {
+        if (res.data.code === 200) {
+            lives.value = res.data.data;
+            if (lives.value.length === 0) videosAreEmpty.value = true;
+        }
     }).catch(e => {
         console.log(e);
     })
@@ -115,7 +270,7 @@ function goToWatch(video: Video, index: number) {
         author: v.author,
         avatar: v.avatar,
         title: v.title,
-        uploadDate: v.uploadDate,
+        uploadDate: formatUploadDate(v.uploadDate),
         likes: v.likes,
         comments: v.comments
     }));
@@ -175,6 +330,7 @@ onMounted(() => {
     flex-wrap: wrap;
     gap: 16px;
     justify-content: flex-start;
+    margin-bottom: auto;
     margin-right: auto;
     max-width: 200%;
     overflow-y: auto;
@@ -215,5 +371,54 @@ onMounted(() => {
     color: rgb(190, 190, 190);
     background-color: rgba(0, 0, 0, 0);
     border: 0;
+}
+
+.video-button {
+    margin-left: 20px;
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(201, 201, 201);
+    border: 0;
+    font-size: large;
+}
+
+.video-button.active {
+    color: red;
+}
+
+.video-button:hover {
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
+}
+
+.user-button {
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(201, 201, 201);
+    border: 0;
+    font-size: large;
+}
+
+.user-button.active {
+    color: red;
+}
+
+.user-button:hover {
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
+}
+
+.live-button {
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(201, 201, 201);
+    font-size: large;
+    border: 0;
+}
+
+.live-button.active {
+    color: red;
+}
+
+.live-button:hover {
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
 }
 </style>

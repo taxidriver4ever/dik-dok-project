@@ -1,5 +1,6 @@
 package org.example.tiktokproject.service.imp;
 
+import jakarta.annotation.Resource;
 import org.example.tiktokproject.pojo.PhotoAndVideo;
 import org.example.tiktokproject.service.SendPhotoService;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -10,7 +11,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class SendPhotoServiceImp implements SendPhotoService {
 
-    @Autowired
+    @Resource
     private RabbitTemplate rabbitTemplate;
 
     @Override

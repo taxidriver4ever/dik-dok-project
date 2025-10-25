@@ -16,9 +16,11 @@ public class InterceptorConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loggedInterceptor)
                 .excludePathPatterns("/user/**")
-                .excludePathPatterns("/video/GetVideo")
-                .excludePathPatterns("/video/searchTitle")
-                .excludePathPatterns("/video/searchVideo");
+                .excludePathPatterns("/video/random")
+                .excludePathPatterns("/video/title")
+                .excludePathPatterns("/video/data")
+                .excludePathPatterns("/live/living-all-data")
+                .excludePathPatterns("/video/status");
     }
 }
 
